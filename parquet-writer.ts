@@ -85,18 +85,25 @@ export class ParquetWriter {
     public async writeFp(footprintsFiles: FootprintsResolverBatchItem[]): Promise<FootprintsParquetMetadata[]> {        
         const rowsPerLabAndComponent: Map<string, {
             rows: ParquetFootprintsRow[],
+            buildIdentifier: IBuildIdentifier,
             from: number,
             to: number
         }> = new Map();
         for (let footprintsFile of footprintsFiles) {
             for await (let {labId, rows, start, end} of this.getRowsFromFpFile(footprintsFile.footprints)) {
-                const mapKey = [labId, footprintsFile.buildSessionId].join('$$');
+                const mapKey = [
+                    labId,
+                    footprintsFile.buildIdentifier.bsid,
+                    footprintsFile.buildSessionId
+                ].join('$$');
                 const item = mapGetOrAdd(rowsPerLabAndComponent, mapKey, {
                     rows: [],
+                    buildIdentifier: null,
                     from: null,
                     to: null
                 });
                 item.rows.push(...rows);
+                item.buildIdentifier = footprintsFile.buildIdentifier;
                 item.from = item.from === null ? start : Math.min(item.from, start);
                 item.to = item.to === null ? end : Math.max(item.to, end);
                 rowsPerLabAndComponent.set(mapKey, item);
@@ -105,16 +112,16 @@ export class ParquetWriter {
 
         const files: FootprintsParquetMetadata[] = [];
         for (let [mapKey, data] of rowsPerLabAndComponent) {
-            const [labId, buildSessionId] = mapKey.split('$$');
+            const [labId, mainBuildSessionId ,componentBuildSessionId] = mapKey.split('$$');
             const from = new Date(data.from);
             const to = new Date(data.to);
-            const {fileName, folder} = await this.uploadFpFile(data.rows, buildSessionId, labId, from, to);
+            const {fileName, folder} = await this.uploadFpFile(data.rows, data.buildIdentifier, componentBuildSessionId, labId, from, to);
             files.push({
-                customerId: this.buildIdentifier.customerId,
-                appName: this.buildIdentifier.appName,
-                branchName: this.buildIdentifier.branchName,
-                buildName: this.buildIdentifier.buildName,
-                buildSessionId,
+                customerId: data.buildIdentifier.customerId,
+                appName: data.buildIdentifier.appName,
+                branchName: data.buildIdentifier.branchName,
+                buildName: data.buildIdentifier.buildName,
+                buildSessionId: componentBuildSessionId,
                 labId,
 
                 from,
@@ -230,13 +237,13 @@ export class ParquetWriter {
         return rows;
     }
 
-    private async uploadFpFile(rows: ParquetFootprintsRow[], buildSessionId: string, labId: string, from: Date, to: Date): Promise<{fileName: string, folder: IStorageLocation2}> {
+    private async uploadFpFile(rows: ParquetFootprintsRow[], buildIdentifier: IBuildIdentifier, buildSessionId: string, labId: string, from: Date, to: Date): Promise<{fileName: string, folder: IStorageLocation2}> {
         const fileName = `${uuid.v4()}.parquet`;
         const folder = this.fpBaseDir.clone()
-            .partition('customer_id', this.buildIdentifier.customerId)
-            .partition('app_name', this.buildIdentifier.appName)
-            .partition('branch_name', this.buildIdentifier.branchName)
-            .partition('build_name', this.buildIdentifier.buildName)
+            .partition('customer_id', buildIdentifier.customerId)
+            .partition('app_name', buildIdentifier.appName)
+            .partition('branch_name', buildIdentifier.branchName)
+            .partition('build_name', buildIdentifier.buildName)
             .partition('build_session_id', buildSessionId)
             .partition('lab_id', labId)
             .partition('from', from.toISOString())

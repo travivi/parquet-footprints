@@ -141,6 +141,10 @@ const ensureExecutionsTableExists = async (glue: Glue, baseDir: IStorageLocation
             PartitionIndexes: [{
                 IndexName: "time_index",
                 Keys: ["customer_id", "app_name", "branch_name", "build_name", "start", "end"]
+            },
+            {
+                IndexName: "lab_index",
+                Keys: ["customer_id", "lab_id"]
             }]
         }).promise();
         logger.info(`Created table 'executions_parquet'`);
@@ -183,7 +187,11 @@ const ensureBuildmapsTableExists = async (glue: Glue, baseDir: IStorageLocation2
                 ],
                 Parameters: {'EXTERNAL': 'TRUE', skipHeaderLineCount: "0"},
                 TableType: 'EXTERNAL_TABLE'
-            }
+            },
+            PartitionIndexes: [{
+                IndexName: "bsid_index",
+                Keys: ["customer_id", "build_session_id"]
+            }],
         }).promise();
         logger.info(`Created table 'buildmaps'`);
     } catch (err) {
@@ -330,6 +338,13 @@ const run = async (buildIdentifier: IBuildIdentifier, buildmapsCopier: Buildmaps
     for await (let dependency of dependenciesResolver.resolve(buildIdentifier)) {
         for await (let file of buildmapsCopier.copy(dependency)) {
             await ensureBuildmapPartitionExists(glue, file);
+        }
+        for await (let footprintsFiles of footprintsResolver.resolve(dependency, FOOTPRINT_FILES_PER_PARQUET)) {
+            const files = await parquetWriter.writeFp(footprintsFiles);
+            for (let file of files) {
+                logger.info(`Created parquet file '${file.folder.storageKey}/${file.fileName}'`);
+                await ensureFpPartitionExists(glue, file);
+            }
         }
     }
 

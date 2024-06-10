@@ -9,7 +9,7 @@ export type FootrpintsResolverArgs = {
     logger: ConsoleLogger
 }
 
-export type FootprintsResolverBatchItem = (SquishedFootprintsFileV6[number] & {buildSessionId: string});
+export type FootprintsResolverBatchItem = (SquishedFootprintsFileV6[number] & {buildIdentifier: IBuildIdentifier, buildSessionId: string});
 
 export class FootprintsResolver {
     private storage: IStorage;
@@ -48,10 +48,19 @@ export class FootprintsResolver {
                 const footprints: SquishedFootprintsFileV6 = squishedFileRaw.split('\n').filter(raw => raw).map(raw => JSON.parse(raw));
                 this.logger.info(`Adding footprints file '${fileLocation.storageKey}'`)
                 for (let fp of footprints) {
-                    batch.push({
-                        ...fp,
-                        buildSessionId: componentBuildSessionId
-                    });
+                    if (file.key.includes('squished')) {
+                        batch.push({
+                            ...fp,
+                            buildIdentifier,
+                            buildSessionId: componentBuildSessionId
+                        });
+                    } else {
+                        batch.push({
+                            footprints: fp as any as IFootprintsV6File,
+                            buildIdentifier,
+                            buildSessionId: componentBuildSessionId
+                        });
+                    }
                     if (batch.length === batchSize) {
                         yield batch;
                         batch = [];
