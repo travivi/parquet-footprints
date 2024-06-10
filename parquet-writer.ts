@@ -1,9 +1,8 @@
-import {IFootprintsV6File} from "../footprints-sender/worker";
+import {IFootprintsV6File} from "./contracts";
 import {ParquetSchema, ParquetTransformer} from 'parquetjs';
 import {IBuildIdentifier, IStorage, IStorageLocation2, S3Location} from "@sealights/sl-cloud-infra2";
 import {ExecutionResolver} from "./exeutions-resolver/execution-resolver";
 import {fromArray} from 'object-stream';
-
 import * as uuid from 'uuid';
 
 export type FootprintsParquetWriterArgs = {

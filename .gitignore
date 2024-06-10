@@ -1,0 +1,15 @@
+node_modules/*
+package-lock.json
+coverage/*
+tsOutputs/*
+#!node_modules/@sealights/
+.idea
+config.json
+*.log
+*.zip
+*.DS_Store
+
+\.vscode/
+\.nyc_output/
+parquet-cli
+intercept.env

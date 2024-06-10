@@ -1,5 +1,5 @@
 import { CONVERSION_FORMAT, IBuildIdentifier, IStorage, S3Location, StorageKeyBuilder } from "@sealights/sl-cloud-infra2";
-import { IFootprintsV6File } from "../footprints-sender/worker";
+import { IFootprintsV6File, SquishedFootprintsFileV6 } from "./contracts";
 import { ConsoleLogger } from ".";
 
 export type FootrpintsResolverArgs = {
@@ -42,7 +42,7 @@ export class FootprintsResolver {
                 const squishedFileRaw = await this.storage.downloadAndDecompressFile<string>(fileLocation, {
                     output: CONVERSION_FORMAT.STRING
                 });
-                const footprints: {footprints: IFootprintsV6File}[] = squishedFileRaw.split('\n').filter(raw => raw).map(raw => JSON.parse(raw));
+                const footprints: SquishedFootprintsFileV6 = squishedFileRaw.split('\n').filter(raw => raw).map(raw => JSON.parse(raw));
                 this.logger.info(`Adding footprints file '${fileLocation.storageKey}'`)
                 for (let fp of footprints) {
                     batch.push(fp.footprints);

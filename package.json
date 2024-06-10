@@ -1,0 +1,29 @@
+{
+  "name": "parquet-footprints",
+  "version": "1.0.0",
+  "description": "Downaload raw footprints for build and convert to parquet for athena queries",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tsc": "./node_modules/.bin/tsc"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/travivi/parquet-footprints.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/travivi/s-footprints/issues"
+  },
+  "homepage": "https://github.com/travivi/parquet-footprints#readme",
+  "devDependencies": {
+    "typescript": "4.4.3",
+    "@types/node": "16.11.0"
+  },
+  "dependencies": {
+    "@sealights/sl-cloud-infra2": "^1.0.860",
+    "object-stream": "^0.0.1",
+    "parquetjs": "^0.11.2"
+  }
+}

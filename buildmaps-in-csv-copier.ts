@@ -1,5 +1,4 @@
-import { CONVERSION_FORMAT, IBuildIdentifier, IStorage, IStorageLocation2, S3Location, StorageKeyBuilder } from "@sealights/sl-cloud-infra2";
-import { IFootprintsV6File } from "../footprints-sender/worker";
+import { IBuildIdentifier, IStorage, IStorageLocation2, S3Location } from "@sealights/sl-cloud-infra2";
 import { ConsoleLogger } from ".";
 
 export type BuildmapsInCsvCopierArgs = {

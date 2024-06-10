@@ -1,0 +1,15 @@
+{
+    "compilerOptions": {
+        "target": "es5",
+        "module": "commonjs",
+        "lib": [
+            "dom",
+            "es2018"
+        ],
+        "sourceMap": true,
+        "watch": false,
+        "outDir": "./tsOutputs",
+        "experimentalDecorators": true,
+        "downlevelIteration": true
+    }
+}
