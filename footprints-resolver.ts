@@ -9,6 +9,8 @@ export type FootrpintsResolverArgs = {
     logger: ConsoleLogger
 }
 
+export type FootprintsResolverBatchItem = (SquishedFootprintsFileV6[number] & {buildSessionId: string});
+
 export class FootprintsResolver {
     private storage: IStorage;
     private bucket: string;
@@ -21,7 +23,7 @@ export class FootprintsResolver {
         this.logger = args.logger;
     }
 
-    public async *resolve(buildIdentifier: IBuildIdentifier, batchSize: number): AsyncGenerator<IFootprintsV6File[]> {
+    public async *resolve(buildIdentifier: IBuildIdentifier, batchSize: number): AsyncGenerator<FootprintsResolverBatchItem[]> {
         const baseFolders = [
             'test-footprint-files-v6',
             buildIdentifier.customerId,
@@ -35,9 +37,10 @@ export class FootprintsResolver {
             delimiter: ''
         });
         this.logger.info(`Found ${files.length} files for '${baseLocation.storageKey}'`);
-        let batch: IFootprintsV6File[] = [];
+        let batch: FootprintsResolverBatchItem[] = [];
         for (let file of files) {
             const fileLocation = new S3Location(this.bucket, file.key);
+            const componentBuildSessionId = fileLocation.keyParts[7];
             try {
                 const squishedFileRaw = await this.storage.downloadAndDecompressFile<string>(fileLocation, {
                     output: CONVERSION_FORMAT.STRING
@@ -45,7 +48,10 @@ export class FootprintsResolver {
                 const footprints: SquishedFootprintsFileV6 = squishedFileRaw.split('\n').filter(raw => raw).map(raw => JSON.parse(raw));
                 this.logger.info(`Adding footprints file '${fileLocation.storageKey}'`)
                 for (let fp of footprints) {
-                    batch.push(fp.footprints);
+                    batch.push({
+                        ...fp,
+                        buildSessionId: componentBuildSessionId
+                    });
                     if (batch.length === batchSize) {
                         yield batch;
                         batch = [];

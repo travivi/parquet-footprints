@@ -42,8 +42,8 @@ export class BuildmapsInCsvCopier {
 
     public get destinationBaseDir(): IStorageLocation2 {
         return new S3Location(this.destinationBucket, [
-            'core-v2',
-            'build-maps-in-csv',
+            this.destinationEnv,
+            'buildmaps-csv'
         ])
     }
 
@@ -58,7 +58,12 @@ export class BuildmapsInCsvCopier {
             buildIdentifier.bsid
         ];
         const sourceLocation = new S3Location(this.sourceBucket, this.sourceEnv).add(...baseFolders);
-        const destinationLocation = new S3Location(this.destinationBucket, this.destinationEnv).add(...baseFolders);
+        const destinationLocation = this.destinationBaseDir
+            .partition('customer_id', buildIdentifier.customerId)
+            .partition('app_name', buildIdentifier.appName)
+            .partition('branch_name', buildIdentifier.branchName)
+            .partition('build_name', buildIdentifier.buildName)
+            .partition('build_session_id', buildIdentifier.bsid);
 
         const files = await this.sourceStorage.listFiles(sourceLocation.bucket, {
             prefix: `${sourceLocation.storageKey}`,
@@ -77,7 +82,7 @@ export class BuildmapsInCsvCopier {
                 branchName: buildIdentifier.branchName,
                 buildName: buildIdentifier.buildName,
                 bsid: buildIdentifier.bsid,
-                folder: fileWriteLocation, fileName
+                folder: destinationLocation, fileName
             };
         }
     }

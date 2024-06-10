@@ -22,10 +22,6 @@ export class ExecutionResolver {
         return execution;
     }
 
-    public close(): Promise<void> {
-        return this.dbConnection.close();
-    }
-
     [Symbol.iterator]() {
         return this.resolvedExecutions.values();
     }

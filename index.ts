@@ -5,6 +5,7 @@ import {ExecutionResolver} from "./exeutions-resolver/execution-resolver";
 import {Glue} from 'aws-sdk';
 import { IStorageLocation2 } from "@sealights/sl-cloud-infra2";
 import { BuildmapCsvMetadata, BuildmapsInCsvCopier } from "./buildmaps-in-csv-copier";
+import { DependenciesResolver } from "./dependencies-resolver/dependencies-resolver";
 
 export interface ConsoleLogger {
     info: (msg: string) => void;
@@ -70,7 +71,6 @@ const ensureFpTableExists = async (glue: Glue, baseDir: IStorageLocation2) => {
                     },
                     Columns: [
                         {Name: 'unique_id', Type: 'string'},
-                        {Name: 'lab_id', Type: 'string'},
                         {Name: 'hit_start', Type: 'timestamp'},
                         {Name: 'hit_end', Type: 'timestamp'}
                     ],
@@ -82,8 +82,10 @@ const ensureFpTableExists = async (glue: Glue, baseDir: IStorageLocation2) => {
                     {Name: "app_name", Type: 'string'},
                     {Name: "branch_name", Type: 'string'},
                     {Name: "build_name", Type: 'string'},
-                    {Name: "start", Type: 'date'},
-                    {Name: "end", Type: 'date'}
+                    {Name: 'build_session_id', Type: 'string'},
+                    {Name: "lab_id", Type: 'string'},
+                    {Name: "start", Type: 'bigint'},
+                    {Name: "end", Type: 'bigint'}
                 ],
                 Parameters: {'EXTERNAL': 'TRUE'},
                 TableType: 'EXTERNAL_TABLE'
@@ -117,7 +119,6 @@ const ensureExecutionsTableExists = async (glue: Glue, baseDir: IStorageLocation
                     },
                     Columns: [
                         {Name: 'execution_id', Type: 'string'},
-                        {Name: 'lab_id', Type: 'string'},
                         {Name: 'test_stage', Type: 'string'},
                         {Name: 'start_time', Type: 'timestamp'},
                         {Name: 'end_time', Type: 'timestamp'}
@@ -129,14 +130,17 @@ const ensureExecutionsTableExists = async (glue: Glue, baseDir: IStorageLocation
                     {Name: "customer_id", Type: 'string'},
                     {Name: "app_name", Type: 'string'},
                     {Name: "branch_name", Type: 'string'},
-                    {Name: "build_name", Type: 'string'}
+                    {Name: "build_name", Type: 'string'},
+                    {Name: 'lab_id', Type: 'string'},
+                    {Name: "start", Type: 'bigint'},
+                    {Name: "end", Type: 'bigint'}
                 ],
                 Parameters: {'EXTERNAL': 'TRUE'},
                 TableType: 'EXTERNAL_TABLE'
             },
             PartitionIndexes: [{
                 IndexName: "time_index",
-                Keys: ["customer_id", "app_name", "branch_name", "build_name"]
+                Keys: ["customer_id", "app_name", "branch_name", "build_name", "start", "end"]
             }]
         }).promise();
         logger.info(`Created table 'executions_parquet'`);
@@ -198,8 +202,10 @@ const ensureFpPartitionExists = async (glue: Glue, file: FootprintsParquetMetada
             file.appName,
             file.branchName,
             file.buildName,
-            file.from.toISOString().split('T')[0],
-            file.to.toISOString().split('T')[0]
+            file.buildSessionId,
+            file.labId,
+            file.from.valueOf().toString(),
+            file.to.valueOf().toString()
         ];
         await glue.createPartition({
             DatabaseName: "remove_integration_build",
@@ -214,7 +220,6 @@ const ensureFpPartitionExists = async (glue: Glue, file: FootprintsParquetMetada
                     BucketColumns: ['hit_start', 'hit_end'],
                     Columns: [
                         {Name: 'unique_id', Type: 'string'},
-                        {Name: 'lab_id', Type: 'string'},
                         {Name: 'hit_start', Type: 'timestamp'},
                         {Name: 'hit_end', Type: 'timestamp'}
                     ],
@@ -238,7 +243,10 @@ const ensureExecutionPartitionExists = async (glue: Glue, file: ExecutionsParque
             file.customerId,
             file.appName,
             file.branchName,
-            file.buildName
+            file.buildName,
+            file.labId,
+            file.from.valueOf().toString(),
+            file.to.valueOf().toString()
         ];
         await glue.createPartition({
             DatabaseName: "remove_integration_build",
@@ -253,7 +261,6 @@ const ensureExecutionPartitionExists = async (glue: Glue, file: ExecutionsParque
                     BucketColumns: ['lab_id'],
                     Columns: [
                         {Name: 'execution_id', Type: 'string'},
-                        {Name: 'lab_id', Type: 'string'},
                         {Name: 'test_stage', Type: 'string'},
                         {Name: 'start_time', Type: 'timestamp'},
                         {Name: 'end_time', Type: 'timestamp'}
@@ -312,7 +319,7 @@ const ensureBuildmapPartitionExists = async (glue: Glue, file: BuildmapCsvMetada
     }
 }
 
-const run = async (buildIdentifier: IBuildIdentifier, buildmapsCopier: BuildmapsInCsvCopier, footprintsResolver: FootprintsResolver, parquetWriter: ParquetWriter, glue: Glue) => {
+const run = async (buildIdentifier: IBuildIdentifier, buildmapsCopier: BuildmapsInCsvCopier, footprintsResolver: FootprintsResolver, dependenciesResolver: DependenciesResolver, parquetWriter: ParquetWriter, glue: Glue) => {
     await ensureDbExists(glue);
     await ensureFpTableExists(glue, parquetWriter.fpBaseDir);
     await ensureExecutionsTableExists(glue, parquetWriter.executionsBaseDir);
@@ -320,14 +327,23 @@ const run = async (buildIdentifier: IBuildIdentifier, buildmapsCopier: Buildmaps
     for await (let file of buildmapsCopier.copy(buildIdentifier)) {
         await ensureBuildmapPartitionExists(glue, file);
     }
-    for await (let footprintsFiles of footprintsResolver.resolve(buildIdentifier, FOOTPRINT_FILES_PER_PARQUET)) {
-        const file = await parquetWriter.writeFp(footprintsFiles);
-        logger.info(`Created parquet file '${file.folder.storageKey}/${file.fileName}'`);
-
-        await ensureFpPartitionExists(glue, file);
+    for await (let dependency of dependenciesResolver.resolve(buildIdentifier)) {
+        for await (let file of buildmapsCopier.copy(dependency)) {
+            await ensureBuildmapPartitionExists(glue, file);
+        }
     }
-    const executionsFile = await parquetWriter.writeExecutions();
-    await ensureExecutionPartitionExists(glue, executionsFile);
+
+    for await (let footprintsFiles of footprintsResolver.resolve(buildIdentifier, FOOTPRINT_FILES_PER_PARQUET)) {
+        const files = await parquetWriter.writeFp(footprintsFiles);
+        for (let file of files) {
+            logger.info(`Created parquet file '${file.folder.storageKey}/${file.fileName}'`);
+            await ensureFpPartitionExists(glue, file);
+        }
+    }
+    const executionsFiles = await parquetWriter.writeExecutions();
+    for (let executionsFile of executionsFiles) {
+        await ensureExecutionPartitionExists(glue, executionsFile);
+    }
 }
 
 const glue = new Glue({
@@ -369,7 +385,9 @@ const connectionFactory = new ConnectionFactory({
     port: SOURCE_DB_PORT || 27017,
     dbName: SOURCE_DB_NAME
 }, "footprints-parquet-poc", undefined, new NullLogger());
-const executionResolver = new ExecutionResolver(connectionFactory.createConnection());
+const connection = connectionFactory.createConnection();
+const executionResolver = new ExecutionResolver(connection);
+const dependenciesResolver = new DependenciesResolver(connection);
 
 const buildIdentifier: IBuildIdentifier = {
     customerId: CUSTOMER_ID,
@@ -387,8 +405,8 @@ const parquetWriter = new ParquetWriter({
     bucket: DESTINATION_BUCKET
 });
 
-run(buildIdentifier, buildMapsCopier, footprintsResolver, parquetWriter, glue)
+run(buildIdentifier, buildMapsCopier, footprintsResolver, dependenciesResolver, parquetWriter, glue)
     .then(() => logger.info("Finished converting footprints to parquet"))
     .catch((err) => logger.error("Footprints conversion to parquet failed", err))
-    .finally(() => executionResolver.close());
+    .finally(() => connection.close());
 
