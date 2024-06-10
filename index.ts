@@ -9,7 +9,7 @@ import { DependenciesResolver } from "./dependencies-resolver/dependencies-resol
 
 export interface ConsoleLogger {
     info: (msg: string) => void;
-    error: (msg: string, error: Error) => void
+    error: (msg: string, error?: Error) => void
 }
 
 const CUSTOMER_ID = process.env.CUSTOMER_ID;
@@ -402,7 +402,8 @@ const parquetWriter = new ParquetWriter({
     envName: DESTINATION_ENV,
     executionResolver,
     buildIdentifier,
-    bucket: DESTINATION_BUCKET
+    bucket: DESTINATION_BUCKET,
+    logger
 });
 
 run(buildIdentifier, buildMapsCopier, footprintsResolver, dependenciesResolver, parquetWriter, glue)
