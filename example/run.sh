@@ -1,0 +1,19 @@
+CUSTOMER_ID='staging' \
+APP_NAME='sealights-sl-cloud-release' \
+BRANCH_NAME='dev' \
+BUILD_NAME='testevents-queue-parser-20240521-112929' \
+BUILD_SESSION_ID='87d4eba4-8b20-45b2-9ed3-8e0059d25216' \
+SOURCE_REGION='eu-west-1' \
+SOURCE_ACCESS_KEY='' \
+SOURCE_SECRET_ACCESS_KEY='' \
+SOURCE_BUCKET='euw-dev-sl-agents-files' \
+SOURCE_ENV_NAME='DEV-staging' \
+SOURCE_DB_HOST='euw-dev-staging-db-main-a.dev.sealights.co' \
+SOURCE_DB_NAME='SeaLightsDB' \
+DESTINATION_REGION='eu-west-1' \
+DESTINATION_ACCESS_KEY='' \
+DESTINATION_SECRET_ACCESS_KEY='' \
+DESTINATION_BUCKET='remove-integration-build' \
+DESTINATION_ENV_NAME='DEV-staging' \
+FOOTPRINT_FILES_PER_PARQUET='100' \
+node -r ts-node/register ../tsOutputs/index.js
