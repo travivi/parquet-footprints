@@ -69,6 +69,7 @@ export class ParquetWriter {
     });
     private storage: IStorage;
     private executionResolver: ExecutionResolver;
+    private writtenExecutions: Set<string>;
     private bucket: string;
     private envName: string;
     private buildIdentifier: IBuildIdentifier;
@@ -79,6 +80,7 @@ export class ParquetWriter {
         this.bucket = args.bucket;
         this.envName = args.envName;
         this.buildIdentifier = args.buildIdentifier;
+        this.writtenExecutions = new Set();
         this.logger = args.logger;
     }
 
@@ -140,6 +142,9 @@ export class ParquetWriter {
             to: number
         }> = new Map();
         for (let execution of this.executionResolver) {
+            if (this.writtenExecutions.has(execution.executionId)) {
+                continue;
+            }
             const item = mapGetOrAdd(rowsPerLab, execution.labId, {
                 rows: [],
                 from: null,
@@ -172,6 +177,10 @@ export class ParquetWriter {
                 to,
                 folder, fileName
             })
+        }
+
+        for (let lab of rowsPerLab.values()) {
+            lab.rows.forEach(row => this.writtenExecutions.add(row.execution_id));
         }
 
         return files;

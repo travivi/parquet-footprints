@@ -1,0 +1,18 @@
+node -r ts-node/register ./tsOutputs/index.js copy-core-v2-as-parquet \
+    --customer-id=staging \
+    --app-name=sealights-sl-cloud-release \
+    --branch-name=dev \
+    --build-name=analytics-report-service-20240618-121459 \
+    --bsid=7fa5f682-72db-436d-8c89-e53518d58535 \
+    --source-region=eu-west-1 \
+    --source-access-key= \
+    --source-secret-access-key= \
+    --source-bucket=euw-dev-sl-agents-files \
+    --source-env=DEV-staging \
+    --source-db-host=euw-dev-staging-db-main-a.dev.sealights.co \
+    --source-db-name=SeaLightsDB \
+    --destination-region=eu-west-1 \
+    --destination-access-key= \
+    --destination-secret-access-key= \
+    --destination-bucket=remove-integration-build \
+    --destination-env=DEV-staging-parquet2
